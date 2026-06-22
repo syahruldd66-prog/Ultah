@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Surprise For You</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&family=Quicksand:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Three.js Import Map -->
+    <script type="importmap">
+        {
+          "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.module.js",
+            "three/addons/controls/OrbitControls.js": "https://cdn.jsdelivr.net/npm/three@0.152.2/examples/jsm/controls/OrbitControls.js"
+          }
+        }
+    </script>
+
+    <style>
+        /* === GLOBAL STYLES & THEME === */
+        :root {
+            --blue-main: #3b82f6; 
+            --blue-glow: #60a5fa; 
+            --bg-dark: #0f172a; 
+        }
+
+        body {
+            background-color: #020617; 
+            color: white;
+            font-family: 'Quicksand', sans-serif;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-touch-callout: none;
+            touch-action: manipulation;
+        }
+
+        /* Fixed Background Gradient */
+        #main-bg {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: radial-gradient(circle at center, #1e293b 0%, #020617 100%);
+            z-index: 0; pointer-events: none;
+            transition: opacity 2s ease;
+        }
+
+        /* 2D Stars Background */
+        #space-canvas {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            z-index: 1; pointer-events: none;
+            transition: opacity 1.5s ease;
+        }
+
+        /* Fireworks Canvas */
+        #fw-canvas {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            z-index: 2; pointer-events: none; display: none; opacity: 1;
+            transition: opacity 1s ease;
+        }
+
+        /* Page Controller */
+        .page {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 10; opacity: 0; pointer-events: none;
+            transition: opacity 1s ease-in-out; padding: 20px; text-align: center;
+        }
+        .page.active { opacity: 1; pointer-events: auto; }
+
+        /* === ANIMATIONS === */
+        @keyframes heartbeat {
+            0%, 28%, 70% { transform: scale(1); }
+            14%, 42% { transform: scale(1.1); }
+        }
+        .animate-heartbeat { animation: heartbeat 1.5s infinite; }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        .animate-float { animation: float 3s ease-in-out infinite; }
+
+        /* --- STICKER STYLES --- */
+        @keyframes float-sticker {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-15px) rotate(5deg); }
+        }
+        .sticker {
+            position: absolute;
+            width: 120px;
+            height: auto;
+            pointer-events: none;
+            filter: drop-shadow(0 0 10px rgba(255,255,255,0.1));
+            animation: float-sticker 4s ease-in-out infinite;
+            z-index: 5;
+            opacity: 0.85;
+        }
+        @media (max-width: 768px) {
+            .sticker { width: 90px; }
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0); opacity: 0; }
+            80% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .pop-in { animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+
+        @keyframes fadeOutZoom {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(0.5); opacity: 0; }
+        }
+
+        /* === COMPONENTS === */
+        #gift-button {
+            font-size: 100px; background: none; border: none; cursor: pointer;
+            animation: wobble 2s infinite ease-in-out; transition: transform 0.3s;
+            filter: drop-shadow(0 0 20px rgba(59, 130, 246, 0.6));
+            -webkit-tap-highlight-color: transparent; outline: none;
+        }
+        @keyframes wobble {
+            0%, 100% { transform: rotate(-5deg) translateY(0); }
+            50% { transform: rotate(5deg) translateY(-20px); }
+        }
+        
+        .btn-blue {
+            background: linear-gradient(45deg, var(--blue-main), #60a5fa);
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+            border-radius: 30px; padding: 12px 30px; color: white;
+            font-weight: 700; letter-spacing: 1px; transition: all 0.3s ease; cursor: pointer;
+        }
+        .btn-blue:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6); }
+
+        /* Page 4 - Loading Love */
+        .hold-btn { -webkit-tap-highlight-color: transparent; touch-action: none; }
+        .svg-container { position: relative; width: 200px; height: 200px; margin: 20px auto; }
+        .progress-ring__circle { transform: rotate(-90deg); transform-origin: 50% 50%; }
+        #base-circle { transition: fill 0.8s ease, stroke 0.8s ease; }
+
+        /* Page 5 - Letter */
+        .envelope-container {
+            width: 280px; height: 180px; background: rgba(59, 130, 246, 0.1); border: 2px solid rgba(59, 130, 246, 0.5);
+            border-radius: 15px; backdrop-filter: blur(5px); position: relative; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.3s ease;
+        }
+        .envelope-container:hover { scale: 1.08; background: rgba(59, 130, 246, 0.25); box-shadow: 0 10px 30px rgba(59, 130, 246, 0.5); }
+        .envelope-container.opening { animation: fadeOutZoom 0.8s forwards; }
+        .letter-box {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0);
+            width: 90vw; max-width: 500px; height: 80vh; max-height: 700px;
+            background: rgba(15, 23, 42, 0.85); border: 2px solid var(--blue-main); border-radius: 20px; padding: 40px 20px 20px; opacity: 0;
+            box-shadow: 0 0 30px rgba(59, 130, 246, 0.3); backdrop-filter: blur(10px); transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 20; display: flex; flex-direction: column;
+        }
+        .letter-box.open { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        .notif-icon {
+            position: absolute; top: -15px; right: -15px; width: 40px; height: 40px; background: var(--blue-main); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; border: 3px solid var(--bg-dark); box-shadow: 0 0 10px rgba(59, 130, 246, 0.5); z-index: 5;
+        }
+        .letter-notif { top: -20px; right: auto; left: 50%; transform: translateX(-50%); width: 50px; height: 50px; font-size: 1.2rem; }
+        
+        .typewriter-text { text-align: left; font-size: 1.1rem; line-height: 1.6; margin-top: 20px; flex-grow: 1; overflow-y: auto; padding-right: 10px; scroll-behavior: smooth; }
+        .typewriter-text::-webkit-scrollbar { width: 6px; }
+        .typewriter-text::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); border-radius: 10px; }
+        .typewriter-text::-webkit-scrollbar-thumb { background: rgba(59, 130, 246, 0.5); border-radius: 10px; }
+
+        /* ThreeJS Canvas */
+        #galaxy-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 2; opacity: 0; pointer-events: none; transition: opacity 2s ease; }
+        #galaxy-container.active { opacity: 1; pointer-events: auto; }
+        
+        /* Floating Audio Control */
+        #audio-toggle {
+            position: fixed; top: 20px; right: 20px; z-index: 50;
+            width: 45px; height: 45px; border-radius: 50%;
+            background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(59, 130, 246, 0.5);
+            color: #60a5fa; display: flex; align-items: center; justify-content: center;
+            backdrop-filter: blur(5px); cursor: pointer; transition: all 0.3s ease;
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.2); opacity: 0; pointer-events: none;
+        }
+        #audio-toggle.visible { opacity: 1; pointer-events: auto; }
+        #audio-toggle:hover { background: rgba(59, 130, 246, 0.2); transform: scale(1.1); }
+
+        /* === GLASS PANEL & POPUP FOTO MELAYANG === */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: 24px;
+        }
+        .photo-popup {
+            position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85);
+            z-index: 99999; display: none; align-items: center; justify-content: center;
+            opacity: 0; transition: opacity 0.3s ease; backdrop-filter: blur(8px);
+        }
+        .photo-popup.active { display: flex; opacity: 1; }
+        .photo-popup img {
+            max-width: 85%; max-height: 75vh; border-radius: 16px;
+            box-shadow: 0 0 30px rgba(59,130,246,0.5); transform: scale(0.9);
+            transition: transform 0.3s ease; border: 2px solid rgba(255,255,255,0.2);
+        }
+        .photo-popup.active img { transform: scale(1); }
+        .close-popup { position: absolute; top: 25px; right: 30px; color: white; font-size: 35px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <!-- PRELOADER SCREEN -->
+    <div id="loader" class="fixed inset-0 z-[100] bg-[#020617] flex flex-col items-center justify-center transition-opacity duration-1000">
+        <i class="fa-solid fa-heart text-5xl text-[#3b82f6] animate-heartbeat mb-6 drop-shadow-[0_0_15px_rgba(59,130,246,0.6)]"></i>
+        <h2 class="text-white font-['Poppins'] text-lg md:text-xl mb-4 tracking-wider animate-pulse">Memuat Alam Semesta...</h2>
+        <div class="w-64 h-2 bg-gray-800 rounded-full overflow-hidden border border-gray-700">
+            <div id="loader-progress" class="h-full bg-blue-500 w-0 transition-all duration-300 shadow-[0_0_10px_#3b82f6]"></div>
+        </div>
+        <p id="loader-text" class="text-blue-400 text-sm mt-3 font-bold">0%</p>
+    </div>
+
+    <!-- Backgrounds -->
+    <div id="main-bg"></div>
+    <canvas id="space-canvas"></canvas> 
+    <canvas id="fw-canvas"></canvas>
+
+    <!-- Audio -->
+    <audio id="bgm" loop>
+        <source src="https://birthdaysx.github.io/Musik/golden-hour.mp3" type="audio/mpeg">
+    </audio>
+
+    <!-- Floating Audio Button -->
+    <button id="audio-toggle" aria-label="Toggle Audio">
+        <i class="fa-solid fa-music"></i>
+    </button>
+
+    <!-- POP-UP LIGHTBOX UNTUK 10 FOTO MELAYANG -->
+    <div id="photoPopup" class="photo-popup" onclick="closePhotoPopup()">
+        <span class="close-popup">&times;</span>
+        <img id="popupImg" src="" alt="Preview">
+    </div>
+
+    <!-- PAGE 1: INTRO KADO -->
+    <div id="page1" class="page active"> 
+        <!-- Stiker Rame-rame -->
+        <img src="https://media.tenor.com/gRHMuWwgl7AAAAAi/peach-goma-love.gif" class="sticker top-16 left-6" style="animation-delay: 0s; width: 100px;" alt="cute sticker">
+        <img src="https://media.tenor.com/qSGlyWc8uv8AAAAi/peach-goma-kiss-peach-and-goma.gif" class="sticker bottom-24 right-6" style="animation-delay: 1s; width: 110px;" alt="cute sticker">
+        <img src="https://media.tenor.com/ieGsbU8n9J4AAAAi/peach-goma-peach-and-goma.gif" class="sticker top-20 right-8" style="animation-delay: 0.5s; width: 85px;" alt="cute sticker">
+        <img src="https://media.tenor.com/gRHMuWwgl7AAAAAi/peach-goma-love.gif" class="sticker bottom-20 left-8" style="animation-delay: 1.5s; width: 95px;" alt="cute sticker">
+        
+        <h1 class="text-4xl font-bold mb-8 font-['Poppins'] text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] z-10">Halloo Sayangkuu!</h1>
+        
+        <button id="gift-button" aria-label="Buka Kado" class="z-10">🎁</button>
+        <p class="text-sm text-gray-300 mt-8 leading-relaxed animate-pulse tracking-wide z-10">Klik kado untuk kejutan</p>
+    </div>
+
+    <!-- PAGE 2: FIREWORKS & WISHES OVERLAY -->
+    <div id="page2" class="page" style="background: transparent; pointer-events: none;">
+        <!-- Stiker Nonton Kembang Api -->
+        <img src="https://media.tenor.com/ieGsbU8n9J4AAAAi/peach-goma-peach-and-goma.gif" class="sticker bottom-16 left-6" style="animation-delay: 0.2s; width: 105px;" alt="cute sticker">
+        <img src="https://media.tenor.com/gRHMuWwgl7AAAAAi/peach-goma-love.gif" class="sticker bottom-32 right-8" style="animation-delay: 1.2s; width: 90px;" alt="cute sticker">
+
+        <div id="fw-hint" class="fixed top-12 text-gray-200 tracking-wider text-sm animate-pulse pointer-events-none opacity-0 transition-opacity duration-1000">
+            ✨ Klik layar untuk Wishes ✨ 
+        </div>
+        <button id="btn-next-2" onclick="startStoryTransition(event)" class="btn-blue fixed bottom-16 opacity-0 pointer-events-none transition-opacity duration-500 z-20 shadow-[0_0_20px_rgba(59,130,246,0.5)] border border-blue-400">Lihat Pesan Spesial -></button>
+    </div>
+
+    <!-- PAGE 3: INTERACTIVE STARS -->
+    <div id="page3" class="page" onclick="handleStarTap()">
+        <!-- Stiker Pas Ngetap Bintang -->
+        <img src="https://media.tenor.com/qSGlyWc8uv8AAAAi/peach-goma-kiss-peach-and-goma.gif" class="sticker top-24 left-8" style="animation-delay: 0.8s; width: 100px;" alt="cute sticker">
+        <img src="https://media.tenor.com/gRHMuWwgl7AAAAAi/peach-goma-love.gif" class="sticker bottom-32 right-10" style="animation-delay: 1.8s; width: 95px;" alt="cute sticker">
+
+        <p id="p3-text" class="text-xl font-medium px-6 leading-relaxed font-['Poppins'] transition-opacity duration-300">sometimes life gets a little dark...</p>
+        <p id="p3-hint" class="text-xs text-blue-300 mt-4 animate-pulse">Tap anywhere on the screen</p>
+        
+        <i id="star1" class="fa-solid fa-star text-yellow-300 absolute top-[30%] left-[20%] text-2xl opacity-0 drop-shadow-[0_0_15px_rgba(253,224,71,0.8)]"></i>
+        <i id="star2" class="fa-solid fa-star text-yellow-300 absolute top-[60%] right-[25%] text-3xl opacity-0 drop-shadow-[0_0_15px_rgba(253,224,71,0.8)]"></i>
+        <i id="star3" class="fa-solid fa-star text-yellow-300 absolute top-[20%] right-[30%] text-xl opacity-0 drop-shadow-[0_0_15px_rgba(253,224,71,0.8)]"></i>
+
+        <button id="btn-next-3" onclick="goToPage(4, event)" class="btn-blue mt-12 opacity-0 pointer-events-none transition-opacity duration-500 absolute bottom-[20%] z-10">continue -></button>
+    </div>
+
+    <!-- PAGE 4: HOLD TO FILL -->
+    <div id="page4" class="page">
+        <!-- Stiker Rame Nungguin Tombol Hold -->
+        <img src="https://media.tenor.com/qSGlyWc8uv8AAAAi/peach-goma-kiss-peach-and-goma.gif" class="sticker top-20 right-8" style="animation-delay: 2s; width: 90px;" alt="cute sticker">
+        <img src="https://media.tenor.com/ieGsbU8n9J4AAAAi/peach-goma-peach-and-goma.gif" class="sticker top-28 left-6" style="animation-delay: 0.3s; width: 95px;" alt="cute sticker">
+        <img src="https://media.tenor.com/gRHMuWwgl7AAAAAi/peach-goma-love.gif" class="sticker bottom-24 left-10" style="animation-delay: 1.4s; width: 100px;" alt="cute sticker">
+        <img src="https://media.tenor.com/ieGsbU8n9J4AAAAi/peach-goma-peach-and-goma.gif" class="sticker bottom-32 right-12" style="animation-delay: 0.9s; width: 85px;" alt="cute sticker">
+
+        <h2 class="text-2xl font-bold font-['Poppins'] text-center z-10">How important are you to me?</h2>
+        <p class="text-xs text-gray-400 mt-2 mb-6 z-10">Hold the button to find out</p>
+
+        <div class="svg-container z-10">
+            <svg width="200" height="200">
+                <defs>
+                    <clipPath id="wave-clip">
+                        <path id="wave-path" d="M 0 200 L 200 200 Z" />
+                    </clipPath>
+                </defs>
+
+                <!-- 1. Garis abu-abu dasar -->
+                <circle id="base-circle" cx="100" cy="100" r="90" fill="transparent" stroke="#333" stroke-width="6"/>
+                
+                <!-- 2. Hati abu-abu dasar (Kosong) -->
+                <g transform="translate(60, 60) scale(3.333)">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" fill="none" stroke="#666" stroke-width="1.5"/>
+                </g>
+
+                <!-- 3. Isian Bergelombang (Air Biru & Hati Putih) -->
+                <g clip-path="url(#wave-clip)">
+                    <circle cx="100" cy="100" r="90" fill="#3b82f6" />
+                    <g transform="translate(60, 60) scale(3.333)">
+                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+                    </g>
+                </g>
+
+                <!-- 4. Garis luar biru yang melingkar (Loading ring) -->
+                <circle id="progress-circle" class="progress-ring__circle" cx="100" cy="100" r="90" fill="transparent" stroke="#3b82f6" stroke-width="6" stroke-dasharray="565.48" stroke-dashoffset="565.48"/>
+            </svg>
+            
+            <div class="absolute -bottom-16 left-0 w-full flex flex-col items-center justify-center pointer-events-none">
+                <span id="percent-text" class="text-3xl font-bold text-[#3b82f6] drop-shadow-[0_0_10px_rgba(59,130,246,0.5)] transition-all duration-300">0%</span>
+                <p id="dynamic-text" class="text-sm text-blue-300 mt-1 font-medium transition-all duration-300 h-5">Tahan tombolnya...</p>
+            </div>
+        </div>
+        <button id="hold-btn" class="btn-blue mt-16 hold-btn z-10">Hold Me</button>
+    </div>
+
+    <!-- PAGE 5: THE LETTER -->
+    <div id="page5" class="page">
+        <!-- Stiker Surat -->
+        <img src="https://media.tenor.com/gRHMuWwgl7AAAAAi/peach-goma-love.gif" class="sticker bottom-32 left-6 z-10" style="animation-delay: 0.5s; width: 100px;" alt="cute sticker">
+        <img src="https://media.tenor.com/qSGlyWc8uv8AAAAi/peach-goma-kiss-peach-and-goma.gif" class="sticker top-20 right-6 z-10" style="animation-delay: 1.5s; width: 90px;" alt="cute sticker">
+        <img src="https://media.tenor.com/ieGsbU8n9J4AAAAi/peach-goma-peach-and-goma.gif" class="sticker top-28 left-8 z-10" style="animation-delay: 2.2s; width: 85px;" alt="cute sticker">
+
+        <div id="envelope" class="envelope-container animate-float z-10" onclick="openLetter()">
+            <div class="notif-icon"><i class="fa-solid fa-heart text-white text-sm"></i></div>
+            <i class="fa-regular fa-envelope text-6xl text-[#3b82f6]"></i>
+        </div>
+        <p id="env-hint" class="text-sm mt-6 text-gray-300">tap to open your letter</p>
+
+        <div id="letter-box" class="letter-box">
+            <div class="notif-icon letter-notif"><i class="fa-solid fa-heart text-white text-xl"></i></div>
+            <div id="typewriter" class="typewriter-text font-['Quicksand']"></div>
+            <div id="scroll-hint" class="text-xs text-blue-400 mt-2 text-center animate-bounce opacity-0 hidden transition-opacity duration-300"><i class="fa-solid fa-angles-down"></i> Scroll ke bawah</div>
+            <div id="sender-name" class="text-right mt-4 text-[#3b82f6] font-bold italic opacity-0 transition-opacity duration-1000">- your favorite person</div>
+            <div class="text-center mt-6">
+                <button id="btn-next-5" onclick="startGalaxyScene()" class="btn-blue opacity-0 pointer-events-none transition-opacity duration-1000 text-sm">the last surprise -></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PAGE 6: GALAXY (THREE.JS) -->
+    <div id="galaxy-container"></div>
+    <div id="page6" class="page" style="pointer-events: none; justify-content: flex-end; padding-bottom: 50px;">
+        
+        <div id="galaxy-hint" class="absolute bottom-24 text-center text-blue-200 text-xs md:text-sm tracking-wide bg-[#0f172a]/70 px-6 py-3 rounded-full backdrop-blur-md border border-blue-500/30 opacity-0 transition-opacity duration-1000 shadow-[0_0_15px_rgba(59,130,246,0.2)]">
+            <i class="fa-solid fa-hand-pointer mr-2 animate-bounce"></i> Gunakan 1 jari untuk memutar, 2 jari untuk zoom<br><span class="text-blue-400 text-[11px] font-bold">✨ Tap salah satu foto melayang untuk memperbesar! ✨</span>
+        </div>
+
+        <button id="btn-next-6" onclick="goToPage(7)" class="bg-[#0f172a]/50 border border-[#3b82f6] text-[#3b82f6] px-8 py-3 rounded-full font-bold opacity-0 transition-all duration-1000 shadow-[0_0_15px_rgba(59,130,246,0.3)] hover:bg-[#3b82f6]/20" style="pointer-events: auto; backdrop-filter: blur(5px); display: none;">penutup -></button>
+    </div>
+
+    <!-- PAGE 7: ENDING -->
+    <div id="page7" class="page bg-black/60 backdrop-blur-md">
+        <!-- Stiker Ending Rame -->
+        <img src="https://media.tenor.com/ieGsbU8n9J4AAAAi/peach-goma-peach-and-goma.gif" class="w-32 h-auto mb-6 drop-shadow-[0_0_15px_rgba(59,130,246,0.4)] animate-float" alt="Sticker Hug">
+        <img src="https://media.tenor.com/gRHMuWwgl7AAAAAi/peach-goma-love.gif" class="sticker top-32 left-8 z-10" style="animation-delay: 0.7s; width: 110px;" alt="cute sticker">
+        <img src="https://media.tenor.com/qSGlyWc8uv8AAAAi/peach-goma-kiss-peach-and-goma.gif" class="sticker bottom-40 right-8 z-10" style="animation-delay: 1.6s; width: 100px;" alt="cute sticker">
+
+        <h1 class="text-3xl font-bold font-['Poppins'] text-[#3b82f6] mb-4 z-10">You Are My Universe<br>I Love You</h1>
+        <p class="text-gray-200 mb-8 max-w-sm z-10">Makasih udah jadi bagian terindah di hidupku. Semoga kamu suka kejutannya yaa!</p>
+        <a href="https://wa.me/6283830405954?text=Sayanggg,%20aku%20udah%20liat%20semuanya!%20Makasih%20banyak%20yaaa%20%E2%9D%A4%EF%B8%8F" target="_blank" class="bg-green-500 hover:bg-green-600 text-white py-3 px-6 rounded-full font-bold shadow-[0_4px_15px_rgba(34,197,94,0.4)] transition-all flex items-center gap-2 z-10">
+            <i class="fa-brands fa-whatsapp text-xl"></i> Balas Pesan Ini 
+        </a>
+    </div> 
+
+    <!-- ========================================== -->
+    <!-- MAIN UI & 2D CANVAS JAVASCRIPT -->
+    <!-- ========================================== -->
+    <script>
+        // --- 0. PRELOADER & AUDIO LOGIC ---
+        let loadProgress = 0;
+        const progressEl = document.getElementById('loader-progress');
+        const textEl = document.getElementById('loader-text');
+        const loader = document.getElementById('loader');
+        
+        const simLoad = setInterval(() => {
+            if (loadProgress < 90) {
+                loadProgress += Math.random() * 10;
+                if(loadProgress > 90) loadProgress = 90;
+                progressEl.style.width = loadProgress + '%';
+                textEl.innerText = Math.floor(loadProgress) + '%';
+            }
+        }, 300);
+
+        window.addEventListener('load', () => {
+            clearInterval(simLoad);
+            progressEl.style.width = '100%';
+            textEl.innerText = '100%';
+            setTimeout(() => {
+                loader.style.opacity = '0';
+                setTimeout(() => loader.style.display = 'none', 1000);
+            }, 600);
+        });
+
+        const audioBtn = document.getElementById('audio-toggle');
+        const bgm = document.getElementById('bgm');
+        let isMuted = false;
+
+        audioBtn.addEventListener('click', () => {
+            isMuted = !isMuted;
+            bgm.muted = isMuted;
+            audioBtn.innerHTML = isMuted ? '<i class="fa-solid fa-volume-xmark text-gray-400"></i>' : '<i class="fa-solid fa-music"></i>';
+            audioBtn.style.borderColor = isMuted ? 'rgba(156, 163, 175, 0.3)' : 'rgba(59, 130, 246, 0.5)';
+        });
+
+        // --- 1. STARS BACKGROUND ---
+        const sCanvas = document.getElementById('space-canvas');
+        const sCtx = sCanvas.getContext('2d');
+        let sStars = [];
+
+        function sResize() { sCanvas.width = window.innerWidth; sCanvas.height = window.innerHeight; }
+        window.addEventListener('resize', sResize); sResize();
+
+        class StarBg {
+            constructor() { this.reset(); }
+            reset() {
+                this.x = Math.random() * sCanvas.width;
+                this.y = Math.random() * sCanvas.height;
+                this.size = Math.random() * 1.5 + 0.5;
+                this.speed = Math.random() * 0.5 + 0.1;
+                this.opacity = Math.random() * 0.5 + 0.3;
+            }
+            update() {
+                this.y -= this.speed;
+                if (this.y < -10) { this.x = Math.random() * sCanvas.width; this.y = sCanvas.height + 10; }
+            }
+            draw() {
+                sCtx.beginPath(); sCtx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                sCtx.fillStyle = `rgba(255, 255, 255, ${this.opacity})`;
+                sCtx.shadowBlur = 8; sCtx.shadowColor = "#3b82f6"; sCtx.fill();
+            }
+        }
+        for (let i = 0; i < 150; i++) sStars.push(new StarBg());
+
+        function animateStarsBg() {
+            sCtx.clearRect(0, 0, sCanvas.width, sCanvas.height);
+            sStars.forEach(p => { p.update(); p.draw(); });
+            requestAnimationFrame(animateStarsBg);
+        }
+        animateStarsBg();
+
+        // --- 2. FIREWORKS LOGIC ---
+        const fwCanvas = document.getElementById('fw-canvas');
+        const fwCtx = fwCanvas.getContext('2d');
+        let fwWidth, fwHeight, fwParticles = [], fwLasers = [];
+        let isFwStarted = false, fwCinematicDone = false;
+        
+        const fwWishes = [["HAPPY BIRTHDAY","CANTIK🤍"],["I LOVE YOU","SO MUCH"],"SEHAT SELALU","PANJANG UMUR",["WISH YOU","ALL THE BEST"], "MAKIN SUKSES",["LOVE YOU","ALWAYS"],"BAHAGIA TERUS"];
+        let fwWishIndex = 0;
+
+        function fwResize() { fwWidth = fwCanvas.width = window.innerWidth; fwHeight = fwCanvas.height = window.innerHeight; }
+        window.addEventListener('resize', fwResize); fwResize();
+
+        const fwRandom = (min, max) => Math.random() * (max - min) + min;
+
+        class FwParticle {
+            constructor(x, y, color, isBig = false, targetX = null, targetY = null) {
+                this.x = x; this.y = y; this.color = color; this.targetX = targetX; this.targetY = targetY;
+                const angle = Math.random() * Math.PI * 2;
+                const speed = isBig ? fwRandom(8, 25) : fwRandom(2, 6);
+                this.velocity = { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed };
+                this.friction = 0.94; this.gravity = (targetX !== null) ? 0 : 0.025;
+                this.opacity = 1; this.decay = (targetX !== null) ? 0.0001 : (isBig ? fwRandom(0.0015, 0.012) : fwRandom(0.015, 0.03));
+            }
+            draw() {
+                fwCtx.save(); fwCtx.globalAlpha = this.opacity; fwCtx.beginPath();
+                fwCtx.moveTo(this.x, this.y); fwCtx.lineTo(this.x - (this.velocity.x * 3), this.y - (this.velocity.y * 3));
+                fwCtx.strokeStyle = this.color; fwCtx.lineWidth = 1.5; fwCtx.stroke(); fwCtx.restore();
+            }
+            update() {
+                if(this.targetX !== null) {
+                    this.x += (this.targetX - this.x) * 0.1; this.y += (this.targetY - this.y) * 0.1;
+                    this.velocity.x *= 0.9; this.velocity.y *= 0.9;
+                } else {
+                    this.velocity.x *= this.friction; this.velocity.y *= this.friction; this.velocity.y += this.gravity;
+                    this.x += this.velocity.x; this.y += this.velocity.y;
+                }
+                this.opacity -= this.decay;
+            }
+        }
+
+        class FwLaser {
+            constructor(targetX, targetY, isCinematic = false) {
+                this.x = fwWidth / 2; this.y = fwHeight; this.targetX = targetX; this.targetY = targetY;
+                this.isCinematic = isCinematic;
+                const angle = Math.atan2(targetY - this.y, targetX - this.x);
+                this.speed = isCinematic ? 0.01 : 2.5; this.acceleration = isCinematic ? 1.02 : 1.1;
+                this.velocityUnit = { x: Math.cos(angle), y: Math.sin(angle) };
+                this.hue = isCinematic ? 210 : fwRandom(180, 260); 
+                this.color = isCinematic ? '#3b82f6' : `hsl(${this.hue}, 100%, 70%)`;
+            }
+            draw() {
+                fwCtx.save(); fwCtx.beginPath(); fwCtx.moveTo(this.x, this.y);
+                fwCtx.lineTo(this.x - (this.velocityUnit.x * this.speed * 4), this.y - (this.velocityUnit.y * this.speed * 4));
+                fwCtx.strokeStyle = this.color; fwCtx.lineWidth = this.isCinematic ? 3 : 1; fwCtx.stroke(); fwCtx.restore();
+            }
+            update() {
+                this.speed *= this.acceleration; this.x += this.velocityUnit.x * this.speed; this.y += this.velocityUnit.y * this.speed;
+                if (this.y <= this.targetY) { this.explode(); return false; }
+                return true;
+            }
+            explode() {
+                if (this.isCinematic) {
+                    for (let i = 0; i < 280; i++) fwParticles.push(new FwParticle(this.x, this.y, `#60a5fa`, true));
+                    setTimeout(() => createFwText(["HAPPY","BIRTHDAY"], this.x, this.y, "#ffffff"), 1);
+                    fwCinematicDone = true;
+                    setTimeout(() => {
+                        const btn2 = document.getElementById('btn-next-2');
+                        btn2.classList.remove('opacity-0', 'pointer-events-none'); btn2.style.pointerEvents = 'auto';
+                        document.getElementById('fw-hint').classList.remove('opacity-0');
+                    }, 4000);
+                } else {
+                    for (let i = 0; i < 50; i++) fwParticles.push(new FwParticle(this.x, this.y, this.color));
+                }
+            }
+        }
+
+        function createFwText(text, centerX, centerY, color) {
+            const tCanvas = document.createElement('canvas'); const tCtx = tCanvas.getContext('2d');
+            tCanvas.width = 600; tCanvas.height = 200; tCtx.fillStyle = 'red';
+            tCtx.font = "bold 50px 'Quicksand', sans-serif"; tCtx.textAlign = 'center'; tCtx.textBaseline = 'middle';
+            if (Array.isArray(text)) { tCtx.fillText(text[0], 300, 60); tCtx.fillText(text[1], 300, 120); } 
+            else { tCtx.fillText(text, 300, 100); }
+            const data = tCtx.getImageData(0, 0, 600, 200).data;
+            for (let y = 0; y < 200; y += 4) {
+                for (let x = 0; x < 600; x += 4) {
+                    if (data[(y * 600 + x) * 4 + 3] > 128) {
+                        fwParticles.push(new FwParticle(centerX, centerY, color, true, centerX + (x - 300), centerY + (y - 100)));
+                    }
+                }
+            }
+        }
+
+        function animateFireworks() {
+            if (!isFwStarted) return;
+            fwCtx.globalCompositeOperation = 'destination-out'; fwCtx.fillStyle = 'rgba(0, 0, 0, 0.2)'; fwCtx.fillRect(0, 0, fwWidth, fwHeight);
+            fwCtx.globalCompositeOperation = 'source-over';
+            fwLasers = fwLasers.filter(l => { l.draw(); return l.update(); });
+            fwParticles = fwParticles.filter(p => { p.draw(); p.update(); return p.opacity > 0; });
+            if (fwCinematicDone && fwLasers.length === 0 && Math.random() < 0.05) {
+                fwLasers.push(new FwLaser(fwRandom(fwWidth * 0.1, fwWidth * 0.9), fwRandom(fwHeight * 0.1, fwHeight * 0.4)));
+            }
+            requestAnimationFrame(animateFireworks);
+        }
+
+        // --- 3. PAGE LOGIC ---
+        function goToPage(pageNum, event = null) {
+            if(event) event.stopPropagation();
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            const targetPage = document.getElementById('page' + pageNum);
+            if (targetPage) targetPage.classList.add('active');
+            if (pageNum === 6) {
+                document.getElementById('space-canvas').style.opacity = '0';
+                document.getElementById('main-bg').style.opacity = '0';
+            }
+        }
+
+        document.getElementById('gift-button').addEventListener('click', () => {
+            const bgm = document.getElementById('bgm'); bgm.play().catch(e => console.log("Audio blocked"));
+            audioBtn.classList.add('visible'); goToPage(2);
+            document.getElementById('page2').style.pointerEvents = 'none';
+            fwCanvas.style.display = 'block'; fwCanvas.style.pointerEvents = 'none';
+            isFwStarted = true; animateFireworks();
+            setTimeout(() => { fwLasers.push(new FwLaser(fwWidth / 2, fwHeight * 0.35, true)); }, 1000);
+        });
+
+        window.addEventListener('click', (e) => {
+            if (!fwCinematicDone || !isFwStarted || e.target.closest('button') || e.target.closest('#photoPopup')) return;
+            const rx = e.clientX; const ry = e.clientY;
+            const laser = new FwLaser(rx, ry, false);
+            laser.explode = function() {
+                for (let i = 0; i < 60; i++) fwParticles.push(new FwParticle(this.x, this.y, this.color));
+                if (fwWishIndex >= fwWishes.length) fwWishIndex = 0;
+                createFwText(fwWishes[fwWishIndex], this.x, this.y, this.color);
+                fwWishIndex++;
+            };
+            fwLasers.push(laser);
+        });
+
+        function startStoryTransition(e) { e.stopPropagation(); isFwStarted = false; fwCanvas.style.opacity = '0'; setTimeout(() => fwCanvas.style.display = 'none', 1000); goToPage(3); }
+
+        // Page 3 Logic
+        let tapCount = 0;
+        const stories = ["sometimes life gets a little dark...", "but you don't have to worry...", "because you will always have my light."];
+        function handleStarTap() {
+            tapCount++;
+            if (tapCount <= 3) {
+                const star = document.getElementById('star' + tapCount);
+                if (star) { star.classList.remove('opacity-0'); star.classList.add('pop-in'); }
+                if(tapCount < 3) { document.getElementById('p3-text').innerText = stories[tapCount]; } 
+                else {
+                    document.getElementById('p3-text').innerText = stories[2];
+                    document.getElementById('p3-hint').style.display = 'none';
+                    const btn3 = document.getElementById('btn-next-3');
+                    btn3.classList.remove('opacity-0', 'pointer-events-none'); btn3.style.pointerEvents = 'auto';
+                }
+            }
+        }
+
+        // Page 4 Logic
+        const holdBtn = document.getElementById('hold-btn');
+        const percentText = document.getElementById('percent-text');
+        const dynamicText = document.getElementById('dynamic-text');
+        const progressCircle = document.getElementById('progress-circle');
+        const baseCircle = document.getElementById('base-circle');
+        const wavePath = document.getElementById('wave-path');
+        
+        let holdInterval, progress = 0, waveTimer = 0;
+        const radius = progressCircle.r.baseVal.value;
+        const circumference = 2 * Math.PI * radius;
+
+        function setProgress(percent) {
+            const offset = circumference - (percent / 100) * circumference;
+            progressCircle.style.strokeDashoffset = offset;
+            const waveY = 200 - (percent / 100) * 200;
+            updateWavePath(waveY);
+        }
+
+        function updateWavePath(y) {
+            waveTimer += 0.2;
+            const amplitude = progress > 0 && progress < 100 ? 6 : 0;
+            let d = `M 0 ${y}`;
+            for (let x = 0; x <= 200; x += 10) {
+                const waveX = y + Math.sin(x * 0.05 + waveTimer) * amplitude;
+                d += ` L ${x} ${waveX}`;
+            }
+            d += ` L 200 200 L 0 200 Z`;
+            wavePath.setAttribute('d', d);
+        }
+
+        function startHold() {
+            clearInterval(holdInterval);
+            holdInterval = setInterval(() => {
+                if (progress < 100) {
+                    progress += 1; percentText.innerText = progress + '%'; setProgress(progress);
+                    if (progress >= 20 && progress < 50) { dynamicText.innerText = "Lebih dari apapun... 💖"; } 
+                    else if (progress >= 50 && progress < 80) { dynamicText.innerText = "Seluas alam semesta! 🌌"; } 
+                    else if (progress >= 80 && progress < 100) { dynamicText.innerText = "Hampir penuh, tahan terus! 🔥"; }
+                } else {
+                    clearInterval(holdInterval); dynamicText.innerText = "You are my everything! 💍";
+                    progressCircle.style.stroke = '#22c55e'; baseCircle.style.stroke = '#22c55e';
+                    setTimeout(() => { goToPage(5); }, 1200);
+                }
+            }, 40);
+        }
+
+        function stopHold() {
+            clearInterval(holdInterval);
+            holdInterval = setInterval(() => {
+                if (progress > 0) {
+                    progress -= 2; if(progress < 0) progress = 0;
+                    percentText.innerText = progress + '%'; setProgress(progress);
+                    dynamicText.innerText = "Yah kok dilepas? Tahan lagi dong...";
+                } else { clearInterval(holdInterval); dynamicText.innerText = "Tahan tombolnya..."; }
+            }, 30);
+        }
+
+        holdBtn.addEventListener('mousedown', startHold); holdBtn.addEventListener('mouseup', stopHold); holdBtn.addEventListener('mouseleave', stopHold);
+        holdBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startHold(); }); holdBtn.addEventListener('touchend', stopHold);
+
+        // Page 5 Logic
+        const suratCinta = "Selamat ulang tahun ya sayangku tercinta...🤍\n\nDi hari yang sangat spesial ini, aku cuma mau bilang makasih banyak udah hadir dan bertahan di hidupku sampai saat ini. Kamu adalah kebahagiaan terbaik sekaligus semesta terindah yang pernah aku miliki.\n\nSemoga di umurmu yang baru ini kamu selalu diberikan kesehatan, panjang umur, kebahagiaan melimpah, dan dilancarkan segala impiannya. Tetaplah jadi dirimu yang manis dan luar biasa ini.\n\nI want to explore the rest of the universe, only with you.";
+        function openLetter() {
+            document.getElementById('envelope').classList.add('opening'); document.getElementById('env-hint').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('envelope').style.display = 'none';
+                const box = document.getElementById('letter-box'); box.classList.add('open');
+                setTimeout(() => { typeWriter(suratCinta, 'typewriter', 45); }, 600);
+            }, 800);
+        }
+
+        function typeWriter(text, elementId, speed) {
+            let i = 0; const el = document.getElementById(elementId); el.innerHTML = "";
+            const hint = document.getElementById('scroll-hint');
+            function type() {
+                if (i < text.length) {
+                    el.innerHTML += text.charAt(i) === '\n' ? '<br>' : text.charAt(i); i++;
+                    el.scrollTop = el.scrollHeight;
+                    if(el.scrollHeight > el.clientHeight && hint.classList.contains('hidden')) { hint.classList.remove('hidden'); hint.classList.add('opacity-0'); setTimeout(() => hint.classList.remove('opacity-0'), 200); }
+                    setTimeout(type, speed);
+                } else {
+                    document.getElementById('sender-name').classList.remove('opacity-0');
+                    const btn5 = document.getElementById('btn-next-5');
+                    btn5.classList.remove('opacity-0', 'pointer-events-none'); btn5.style.pointerEvents = 'auto';
+                }
+            }
+            type();
+        }
+
+        function startGalaxyScene() { goToPage(6); initThreeJS(); }
+    </script>
+
+    <!-- ========================================== -->
+    <!-- THREE.JS 3D PLANET & PHOTOS CODE -->
+    <!-- ========================================== -->
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        window.initThreeJS = function() {
+            const container = document.getElementById('galaxy-container');
+            container.classList.add('active');
+
+            const scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x020617, 0.006);
+
+            const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 15, 65);
+
+            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.appendChild(renderer.domElement);
+
+            const controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true; controls.dampingFactor = 0.05;
+            controls.maxDistance = 120; controls.minDistance = 25;
+
+            // --- PLANET GENERATOR ---
+            const planetRadius = 12;
+            const planetGeometry = new THREE.SphereGeometry(planetRadius, 48, 48);
+            
+            const canvas = document.createElement('canvas'); canvas.width = canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+            const grad = ctx.createRadialGradient(256, 256, 64, 256, 256, 256);
+            grad.addColorStop(0.0, '#bfdbfe'); grad.addColorStop(0.2, '#60a5fa');
+            grad.addColorStop(0.5, '#2563eb'); grad.addColorStop(1.0, '#0f172a');
+            ctx.fillStyle = grad; ctx.fillRect(0, 0, 512, 512);
+            const planetTexture = new THREE.CanvasTexture(canvas);
+
+            const vertexShader = `varying vec2 vUv; varying vec3 vNormal; void main() { vUv = uv; vNormal = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
+            const fragmentShader = `uniform float time; uniform sampler2D baseTexture; varying vec2 vUv; varying vec3 vNormal; void main() { vec2 shiftedUv = vUv + vec2(time * 0.03, time * 0.01); vec4 texColor = texture2D(baseTexture, shiftedUv); float intensity = pow(0.7 - dot(vNormal, vec3(0, 0, 1.0)), 2.0); vec3 glow = vec3(0.2, 0.5, 1.0) * intensity; gl_FragColor = vec4(texColor.rgb + glow, 1.0); }`;
+
+            const planetMaterial = new THREE.ShaderMaterial({
+                uniforms: { time: { value: 0.0 }, baseTexture: { value: planetTexture } },
+                vertexShader, fragmentShader
+            });
+            const planet = new THREE.Mesh(planetGeometry, planetMaterial);
+            scene.add(planet);
+
+            // --- AMBIENT STARS FIELD ---
+            const starsGeom = new THREE.BufferGeometry(); const starsCount = 1200;
+            const positions = new Float32Array(starsCount * 3);
+            for(let i=0; i<starsCount*3; i++) { positions[i] = (Math.random() - 0.5) * 200; }
+            starsGeom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            const starsMat = new THREE.PointsMaterial({ color: 0x60a5fa, size: 0.6, transparent: true, opacity: 0.8 });
+            const starField = new THREE.Points(starsGeom, starsMat);
+            scene.add(starField);
+
+            // --- AMBIENT LIGHTS ---
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8); scene.add(ambientLight);
+
+            // --- 10 FLOATING PHOTOS SABUK PLANET ---
+            const photoUrls = [
+                'foto1.jpg', 'foto2.jpg', 'foto3.jpg', 'foto4.jpg', 'foto5.jpg',
+                'foto6.jpg', 'foto7.jpg', 'foto8.jpg', 'foto9.jpg', 'foto10.jpg'
+            ];
+            const floatingPhotos = [];
+            const textureLoader = new THREE.TextureLoader();
+            const raycaster = new THREE.Raycaster();
+            const mouse = new THREE.Vector2();
+
+            photoUrls.forEach((url, index) => {
+                textureLoader.load(url, (texture) => {
+                    const photoGeometry = new THREE.PlaneGeometry(7, 7);
+                    const photoMaterial = new THREE.MeshBasicMaterial({ 
+                        map: texture, 
+                        side: THREE.DoubleSide 
+                    });
+                    const photoMesh = new THREE.Mesh(photoGeometry, photoMaterial);
+                    photoMesh.userData = { url: url };
+
+                    const angle = (index / photoUrls.length) * Math.PI * 2;
+                    const orbitRadius = 32; 
+                    photoMesh.position.x = Math.cos(angle) * orbitRadius;
+                    photoMesh.position.z = Math.sin(angle) * orbitRadius;
+                    photoMesh.position.y = (Math.random() - 0.5) * 8; 
+
+                    scene.add(photoMesh);
+                    floatingPhotos.push(photoMesh);
+                }, undefined, (err) => console.log("Gagal memuat foto: " + url));
+            });
+
+            function animatePhotos(time) {
+                floatingPhotos.forEach((photo, index) => {
+                    const angle = (index / floatingPhotos.length) * Math.PI * 2 + time * 0.12;
+                    const orbitRadius = 32;
+                    photo.position.x = Math.cos(angle) * orbitRadius;
+                    photo.position.z = Math.sin(angle) * orbitRadius;
+                    photo.lookAt(camera.position);
+                });
+            }
+
+            window.addEventListener('click', (event) => {
+                if (event.target.closest('button') || event.target.closest('#photoPopup')) return;
+                mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+                mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+                raycaster.setFromCamera(mouse, camera);
+                
+                const intersects = raycaster.intersectObjects(floatingPhotos);
+                if (intersects.length > 0) {
+                    const clickedObj = intersects[0].object;
+                    openPhotoPopup(clickedObj.userData.url);
+                }
+            });
+
+            window.openPhotoPopup = function(url) {
+                const popup = document.getElementById('photoPopup');
+                const img = document.getElementById('popupImg');
+                img.src = url;
+                popup.classList.add('active');
+            };
+
+            window.closePhotoPopup = function() {
+                document.getElementById('photoPopup').classList.remove('active');
+            };
+
+            setTimeout(() => { document.getElementById('galaxy-hint').classList.remove('opacity-0'); }, 1000);
+            setTimeout(() => {
+                const btn6 = document.getElementById('btn-next-6');
+                btn6.style.display = 'block'; setTimeout(() => btn6.classList.remove('opacity-0'), 50);
+            }, 6000);
+
+            function animate() {
+                requestAnimationFrame(animate);
+                const time = performance.now() * 0.001;
+                
+                controls.update();
+                planet.material.uniforms.time.value = time * 0.6;
+                planet.rotation.y = time * 0.05;
+                starField.rotation.y = -time * 0.01;
+
+                animatePhotos(time);
+
+                renderer.render(scene, camera);
+            }
+            animate();
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        };
+    </script>
+</body>
+</html>
